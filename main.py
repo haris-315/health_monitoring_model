@@ -2,6 +2,7 @@ import joblib
 import pandas as pd
 from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
 # Load your trained model
 model = joblib.load("medical_rf_model.pkl")
@@ -21,6 +22,14 @@ class PatientData(BaseModel):
 
 # Initialize FastAPI app
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or specify your frontend origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def main():
