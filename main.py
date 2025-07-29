@@ -1,9 +1,11 @@
 import joblib
 import pandas as pd
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import json
+import asyncio
+import httpx  # Async HTTP client
 
 # Load the trained model
 model = joblib.load("medical_rf_model.pkl")
@@ -42,18 +44,12 @@ async def websocket_predict(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
-            # Receive data from client
             data = await websocket.receive_text()
             try:
-                # Parse incoming JSON data
                 patient_data = json.loads(data)
-                # Validate data using Pydantic
                 patient = PatientData(**patient_data)
-                # Convert to DataFrame
                 input_df = pd.DataFrame([patient.dict()])
-                # Run prediction
                 prediction = model.predict(input_df)[0]
-                # Send prediction back to client
                 await websocket.send_json({
                     "prediction": int(prediction),
                     "status": "high risk" if prediction == 1 else "normal"
@@ -64,3 +60,20 @@ async def websocket_predict(websocket: WebSocket):
         print("Client disconnected")
     finally:
         await websocket.close()
+
+# 👇 Background keep-alive pinger
+async def keep_alive():
+    await asyncio.sleep(5)  # Wait until server is fully up
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                # Replace with your actual Render URL (no trailing slash)
+                response = await client.get("https://your-service-name.onrender.com/")
+                print(f"Keep-alive ping: {response.status_code}")
+        except Exception as e:
+            print(f"Keep-alive error: {e}")
+        await asyncio.sleep(1200)  # Ping every 20 minutes
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(keep_alive())
