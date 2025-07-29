@@ -75,7 +75,7 @@ async def keep_alive():
                 print(f"Keep-alive ping: {response.status_code}")
         except Exception as e:
             print(f"Keep-alive error: {e}")
-        await asyncio.sleep(1200)  # Ping every 20 minutes
+        await asyncio.sleep(200)  # Ping every 20 minutes
 
 @app.on_event("startup")
 async def startup_event():
