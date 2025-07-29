@@ -59,7 +59,10 @@ async def websocket_predict(websocket: WebSocket):
     except WebSocketDisconnect:
         print("Client disconnected")
     finally:
-        await websocket.close()
+        try:
+            await websocket.close()
+        except:
+            pass
 
 # 👇 Background keep-alive pinger
 async def keep_alive():
