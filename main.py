@@ -6,6 +6,26 @@ from fastapi.middleware.cors import CORSMiddleware
 import json
 import asyncio
 import httpx  # Async HTTP client
+import smtplib
+
+
+from email.message import EmailMessage
+
+def send_email(subject, body, to_email):
+    msg = EmailMessage()
+    msg.set_content(body)
+    msg['Subject'] = subject
+    msg['From'] = 'remotehms112233@gmail.com'
+    msg['To'] = to_email
+
+    # Connect to Gmail SMTP
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+        smtp.login('remotehms112233@gmail.com', 'zwgr gfbb xqij bfmo')
+        smtp.send_message(msg)
+
+
+
+
 
 # Load the trained model
 model = joblib.load("medical_rf_model.pkl")
@@ -18,6 +38,7 @@ class PatientData(BaseModel):
     chol: float
     fbs: float
     restecg: int
+    email: str
     exng: int
     temperature: float
     o2: float
@@ -37,8 +58,9 @@ app.add_middleware(
 
 @app.get("/")
 async def main():
-    return {"message": "Welcome to ML-based Health Monitoring API"}
 
+    return {"message": "Welcome to ML-based Health Monitoring API"}
+predictions = []
 @app.websocket("/ws/predict")
 async def websocket_predict(websocket: WebSocket):
     await websocket.accept()
@@ -49,11 +71,17 @@ async def websocket_predict(websocket: WebSocket):
                 patient_data = json.loads(data)
                 patient = PatientData(**patient_data)
                 input_df = pd.DataFrame([patient.dict()])
+
                 prediction = model.predict(input_df)[0]
+                if (len(predictions) >= 10):
+                    predictions.remove(predictions[0])
+                predictions.append(prediction)
                 await websocket.send_json({
-                    "prediction": int(prediction),
-                    "status": "high risk" if prediction == 1 else "normal"
+                    "prediction": int(calculate_average(predictions)),
+                    "status": "high risk" if int(calculate_average(predictions)) == 1 else "normal"
                 })
+                if int(calculate_average(predictions)) == 1:
+                    send_email("Health Monitoring Alert", "Warning! HMS has detected a high risk heart attack.",)
             except Exception as e:
                 await websocket.send_json({"error": str(e)})
     except WebSocketDisconnect:
@@ -63,6 +91,12 @@ async def websocket_predict(websocket: WebSocket):
             await websocket.close()
         except:
             pass
+
+
+def calculate_average(numbers):
+    if not numbers:
+        return 0  # Avoid division by zero
+    return sum(numbers) / len(numbers)
 
 # 👇 Background keep-alive pinger
 async def keep_alive():
@@ -75,7 +109,7 @@ async def keep_alive():
                 print(f"Keep-alive ping: {response.status_code}")
         except Exception as e:
             print(f"Keep-alive error: {e}")
-        await asyncio.sleep(200)  # Ping every 20 minutes
+        await asyncio.sleep(260)  # Ping every 20 minutes
 
 @app.on_event("startup")
 async def startup_event():
