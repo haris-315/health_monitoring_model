@@ -81,7 +81,10 @@ async def websocket_predict(websocket: WebSocket):
                     "status": "high risk" if int(calculate_average(predictions)) == 1 else "normal"
                 })
                 if int(calculate_average(predictions)) == 1:
-                    send_email("Health Monitoring Alert", "Warning! HMS has detected a high risk heart attack.",)
+                    try:
+                        send_email("Health Monitoring Alert", "Warning! HMS has detected a high risk heart attack.",)
+                    except:
+                        pass
             except Exception as e:
                 await websocket.send_json({"error": str(e)})
     except WebSocketDisconnect:
