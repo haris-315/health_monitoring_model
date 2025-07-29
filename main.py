@@ -71,7 +71,7 @@ async def keep_alive():
         try:
             async with httpx.AsyncClient() as client:
                 # Replace with your actual Render URL (no trailing slash)
-                response = await client.get("https://your-service-name.onrender.com/")
+                response = await client.get("https://health-monitoring-model.onrender.com/")
                 print(f"Keep-alive ping: {response.status_code}")
         except Exception as e:
             print(f"Keep-alive error: {e}")
