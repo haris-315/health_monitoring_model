@@ -75,19 +75,22 @@ async def websocket_predict(websocket: WebSocket):
                 email = patient.email
 
                 # 🔥 Remove email from dict before passing to model
-                model_input_dict = patient.dict()
-                model_input_dict.pop("email")
+                if patient.hr > 200 or patient.hr < 50 and patient.o2 < 85:
+                    avg_prediction = 1;
+                else:
+                    model_input_dict = patient.dict()
+                    model_input_dict.pop("email")
 
-                input_df = pd.DataFrame([model_input_dict])
+                    input_df = pd.DataFrame([model_input_dict])
 
-                prediction = model.predict(input_df)[0]
-                
-                if (len(predictions) >= 10):
-                    predictions.remove(predictions[0])
-                predictions.append(prediction)
+                    prediction = model.predict(input_df)[0]
+                    
+                    if (len(predictions) >= 10):
+                        predictions.remove(predictions[0])
+                    predictions.append(prediction)
 
-                avg_prediction = int(calculate_average(predictions))
-                
+                    avg_prediction = int(calculate_average(predictions))
+                    
                 await websocket.send_json({
                     "prediction": avg_prediction,
                     "status": "high risk" if avg_prediction == 1 else "normal"
@@ -97,7 +100,7 @@ async def websocket_predict(websocket: WebSocket):
                     try:
                         send_email(
                             "Health Monitoring Alert",
-                            "Warning! HMS has detected a high risk heart attack.",
+                            "Warning! HMS has detected a high risk of heart attack.",
                             email  # ✅ Send to actual patient email
                         )
                     except Exception as e:
