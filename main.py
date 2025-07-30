@@ -70,21 +70,38 @@ async def websocket_predict(websocket: WebSocket):
             try:
                 patient_data = json.loads(data)
                 patient = PatientData(**patient_data)
-                input_df = pd.DataFrame([patient.dict()])
+
+                # 🔥 Extract email separately
+                email = patient.email
+
+                # 🔥 Remove email from dict before passing to model
+                model_input_dict = patient.dict()
+                model_input_dict.pop("email")
+
+                input_df = pd.DataFrame([model_input_dict])
 
                 prediction = model.predict(input_df)[0]
+                
                 if (len(predictions) >= 10):
                     predictions.remove(predictions[0])
                 predictions.append(prediction)
+
+                avg_prediction = int(calculate_average(predictions))
+                
                 await websocket.send_json({
-                    "prediction": int(calculate_average(predictions)),
-                    "status": "high risk" if int(calculate_average(predictions)) == 1 else "normal"
+                    "prediction": avg_prediction,
+                    "status": "high risk" if avg_prediction == 1 else "normal"
                 })
-                if int(calculate_average(predictions)) == 1:
+
+                if avg_prediction == 1:
                     try:
-                        send_email("Health Monitoring Alert", "Warning! HMS has detected a high risk heart attack.",)
-                    except:
-                        pass
+                        send_email(
+                            "Health Monitoring Alert",
+                            "Warning! HMS has detected a high risk heart attack.",
+                            email  # ✅ Send to actual patient email
+                        )
+                    except Exception as e:
+                        print(f"Email sending failed: {e}")
             except Exception as e:
                 await websocket.send_json({"error": str(e)})
     except WebSocketDisconnect:
@@ -94,6 +111,7 @@ async def websocket_predict(websocket: WebSocket):
             await websocket.close()
         except:
             pass
+
 
 
 def calculate_average(numbers):
